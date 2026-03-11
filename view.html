@@ -1,0 +1,32 @@
+<h2>Album (Protected)</h2>
+<div id="grid"></div>
+
+<script>
+const API_KEY = "my-secret-key";
+
+function load() {
+  fetch("/api/images", { headers: { "x-api-key": API_KEY } })
+    .then((r) => r.json())
+    .then((data) => {
+      const g = document.getElementById("grid");
+      g.innerHTML = "";
+      data.forEach((i) => {
+        g.innerHTML += `
+        <div style="border:1px solid #aaa; padding:5px; width:200px; display:inline-block; margin:5px">
+          <img src="${i.url}" style="width:100%"><br>
+          <b>${i.name}</b><br>
+          <button onclick="del(${i.id})">Delete</button>
+        </div>`;
+      });
+    });
+}
+
+function del(id) {
+  fetch("/api/delete/" + id, {
+    method: "DELETE",
+    headers: { "x-api-key": API_KEY },
+  }).then(() => load());
+}
+
+load();
+</script>
