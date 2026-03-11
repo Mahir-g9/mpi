@@ -1,22 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Protected Image Uploader</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+    }
+    h2, h3 {
+      text-align: center;
+    }
+    #upload-area {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    #upload-area input[type="text"], #upload-area input[type="file"] {
+      padding: 5px;
+    }
+    #upload-area button {
+      padding: 5px 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    #upload-area button:hover {
+      background: #45a049;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .image-card {
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .image-card img {
+      width: 100%;
+      border-radius: 4px;
+      margin-bottom: 5px;
+    }
+    .image-card input[type="text"] {
+      width: 100%;
+      margin-bottom: 5px;
+      padding: 4px;
+    }
+    .image-card button {
+      margin: 2px;
+      padding: 5px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: white;
+    }
+    .btn-edit { background: #2196F3; }
+    .btn-edit:hover { background: #1976D2; }
+    .btn-delete { background: #f44336; }
+    .btn-delete:hover { background: #d32f2f; }
+  </style>
+</head>
+<body>
+
 <h2>Upload Image (Protected)</h2>
-<input id="name" placeholder="Image name">
-<input type="file" id="file">
-<button onclick="upload()">Upload</button>
+<div id="upload-area">
+  <input id="name" placeholder="Image name">
+  <input type="file" id="file">
+  <button onclick="upload()">Upload</button>
+</div>
+
+<h3>Uploaded Images</h3>
+<div id="grid"></div>
 
 <script>
 const API_KEY = "mpi";
 
+// Upload image
 function upload() {
+  const fileInput = document.getElementById("file");
+  const nameInput = document.getElementById("name").value;
+
+  if (!fileInput.files.length) return alert("Select a file!");
+
   let fd = new FormData();
-  fd.append("name", document.getElementById("name").value);
-  fd.append("img", document.getElementById("file").files[0]);
+  fd.append("name", nameInput);
+  fd.append("img", fileInput.files[0]);
 
   fetch("/api/upload", {
     method: "POST",
     headers: { "x-api-key": API_KEY },
     body: fd,
   })
-    .then((r) => r.json())
-    .then(() => alert("Uploaded (-:"));
+  .then(r => {
+    if (!r.ok) throw new Error(r.statusText);
+    return r.json();
+  })
+  .then(() => {
+    alert("Uploaded!");
+    fileInput.value = "";
+    document.getElementById("name").value = "";
+    loadImages();
+  })
+  .catch(err => alert("Upload failed: " + err.message));
 }
+
+// Load images
+function loadImages() {
+  fetch("/api/images", { headers: { "x-api-key": API_KEY } })
+    .then(r => r.json())
+    .then(data => {
+      const g = document.getElementById("grid");
+      g.innerHTML = "";
+      data.forEach(i => {
+        g.innerHTML += `
+          <div class="image-card">
+            <img src="${i.url}" alt="${i.name}">
+            <input value="${i.name}" id="name-${i.id}">
+            <div>
+              <button class="btn-edit" onclick="editName(${i.id})">Edit Name</button>
+              <button class="btn-delete" onclick="del(${i.id})">Delete</button>
+            </div>
+          </div>`;
+      });
+    });
+}
+
+// Edit image name
+function editName(id) {
+  const newName = document.getElementById("name-" + id).value;
+  fetch("/api/images", {
+    method: "PATCH",
+    headers: { 
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY
+    },
+    body: JSON.stringify({ id, name: newName })
+  })
+  .then(r => r.json())
+  .then(() => loadImages())
+  .catch(err => alert("Edit failed: " + err.message));
+}
+
+// Delete image
+function del(id) {
+  fetch("/api/delete/" + id, {
+    method: "DELETE",
+    headers: { "x-api-key": API_KEY },
+  })
+  .then(() => loadImages())
+  .catch(err => alert("Delete failed: " + err.message));
+}
+
+// Load on start
+loadImages();
 </script>
+
+</body>
+</html>
